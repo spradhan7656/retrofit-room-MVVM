@@ -15,10 +15,10 @@ class DemoRepository(
     private val demoDatabase: DemoDatabase,
     private val applicationContext: Context
 ) {
-    private val demoLiveData=MutableLiveData<DemoList>()
+    private val demoLiveData=MutableLiveData<Response<DemoList>>()
 
 
-    val demos:LiveData<DemoList>
+    val demos:LiveData<Response<DemoList>>
     get() = demoLiveData
 
     suspend fun getDemoList(){
@@ -31,18 +31,40 @@ class DemoRepository(
          */
         if(NetworkUtils.isInternetAvailable(applicationContext)){
             Log.d("check", "true")
-            val result =demoServices.getDemolist()
-            if(result?.body() != null){
-                demoDatabase.demoDao().addDemoData(result.body()!!)
-                demoLiveData.postValue(result.body())
+            try {
+                /**
+                 * i check the response status form the server is loading or error and success
+                 */
+                demoLiveData.postValue(Response.Loading())
+                val result =demoServices.getDemolist()
+
+                if(result?.body() != null){
+                    demoDatabase.demoDao().addDemoData(result.body()!!)
+                    demoLiveData.postValue(Response.Success(result.body()))
+                }
+                else{
+                    demoLiveData.postValue(Response.Error("error"))
+                }
+            }
+            catch (e: Exception) {
+                demoLiveData.postValue(Response.Error("error "))
             }
         }else{
             Log.d("check ","false")
             val demoData=demoDatabase.demoDao().getDemoData()
             var demolist=DemoList()
             demolist.addAll(demoData)
-            demoLiveData.postValue(demolist)
+            demoLiveData.postValue(Response.Success(demolist))
+            /**
+             * if you want to try catch using if the database throws any kind of exception
+             */
         }
 
+    }
+    suspend fun getDemosBackground(){
+        val result=demoServices.getDemolist()
+        if(result?.body() != null){
+            demoDatabase.demoDao().addDemoData(result.body()!!)
+        }
     }
 }
